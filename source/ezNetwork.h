@@ -10,12 +10,13 @@ namespace ezNetwork {
 		using IP = const char*;
 		const IP ip;
 		const Port port;
-		Address(IP ip, Port port) :ip(ip), port(port) {}
+		Address(const IP& ip, const Port& port) :ip(ip), port(port) {}
 	} const DefaultAddress = Address("127.0.0.1", 19245);
 
 
 	namespace internal{
 		struct DataFlow {
+			using Byte = char;
 			using ID = size_t;
 			using Size = size_t;
 			template<typename Data>
@@ -23,27 +24,42 @@ namespace ezNetwork {
 			template<typename Data>
 			static constexpr Size size() { return sizeof(Data); }
 
-			struct VectorRawRecive {
-				virtual void reserve(size_t) = 0;
-				virtual void add(void*) = 0;
+			struct VectorI {
+				virtual void reserve(Size) = 0;
+				virtual void add(const Byte*) = 0;
 			};
 
 			template<typename Data>
-			struct VectorWrapper : public VectorRawRecive {
+			struct Vector : VectorI {
 				std::vector<Data>& vector;
-				VectorWrapper(std::vector<Data>& vector) : vector(vector) {}
-				void reserve(size_t size) override { vector.reserve(size); }
-				void add(void* ptr) override { vector.push_back(*(Data*)ptr); }
+				Vector(std::vector<Data>& vector) : vector(vector) {}
+				void reserve(Size size) override { vector.reserve(size); }
+				void add(const Byte* ptr) override { vector.emplace_back(*(Data*)ptr); }
 			};
 
-			virtual void send_raw(ID, Size, const void* data) = 0;
-			virtual void recieve_raw(ID, VectorRawRecive&) = 0;
+		
+			struct Msg{
+				Size size;
+				ID id;
+				const Byte* data;
+				Msg(const Size& size, const ID& id, const Byte* data) :
+					size(size), id(id), data(data){}
+			};
+
+
+			template<class Data>
+			Msg toMsg(const Data& data){
+				return{ DataFlow::size<Data>(), DataFlow::id<Data>(), (const Byte*)&data };
+			}
+
+			virtual void send_raw(const Msg& msg) = 0;
+			virtual void recieve_raw(const ID&, VectorI&) = 0;
 			virtual ~DataFlow() = default;
 
 			template<typename Data>
 			std::vector<Data> recieve() {
 				std::vector<Data> vector;
-				recieve_raw(id<Data>(), VectorWrapper<Data>(vector));
+				recieve_raw(id<Data>(), Vector<Data>(vector));
 				return vector;
 			}
 		};
@@ -52,7 +68,7 @@ namespace ezNetwork {
 	struct Server : private virtual internal::DataFlow {
 		template<typename Data>
 		void send(const Data& data) {
-			send_raw(id<Data>(), size<Data>(), &data);
+			send_raw(toMsg(data));
 		}
 
 		template<typename Data>
@@ -64,7 +80,7 @@ namespace ezNetwork {
 	struct Client : private virtual internal::DataFlow {
 		template<typename Data>
 		void send(const Data& data) {
-			send_raw(id<Data>(), size<Data>(), &data);
+			send_raw(toMsg(data));
 		}
 
 		template<typename Data>

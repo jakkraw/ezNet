@@ -1,4 +1,17 @@
 ﻿  Source.cpp
-     Creating library C:\kuba\programming\ezNetwork\vs15\ezNetwork\Debug\server.lib and object C:\kuba\programming\ezNetwork\vs15\ezNetwork\Debug\server.exp
-  server.vcxproj -> C:\kuba\programming\ezNetwork\vs15\ezNetwork\Debug\server.exe
-  server.vcxproj -> C:\kuba\programming\ezNetwork\vs15\ezNetwork\Debug\server.pdb (Partial PDB)
+c:\kuba\programming\eznetwork\source\eznetwork.h(61): error C2664: 'void ezNetwork::internal::DataFlow::recieve_raw(const ezNetwork::internal::DataFlow::ID &,ezNetwork::internal::DataFlow::VectorI &)': cannot convert argument 2 from 'std::vector<Greet,std::allocator<_Ty>>' to 'ezNetwork::internal::DataFlow::VectorI &'
+          with
+          [
+              _Ty=Greet
+          ]
+  c:\kuba\programming\eznetwork\source\eznetwork.h(75): note: see reference to function template instantiation 'std::vector<Greet,std::allocator<_Ty>> ezNetwork::internal::DataFlow::recieve<Data>(void)' being compiled
+          with
+          [
+              _Ty=Greet,
+              Data=Greet
+          ]
+  c:\kuba\programming\eznetwork\vs15\tests\server\source.cpp(19): note: see reference to function template instantiation 'std::vector<Greet,std::allocator<_Ty>> ezNetwork::Server::recieve<Greet>(void)' being compiled
+          with
+          [
+              _Ty=Greet
+          ]

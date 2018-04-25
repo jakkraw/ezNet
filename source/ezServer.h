@@ -31,7 +31,7 @@ struct Listener
 	Connection waitForConnection()
 	{
 		int size = sizeof(addr);
-		auto clientSocket = accept(socket, (sockaddr*)&addr, &size);
+		const auto clientSocket = accept(socket, (sockaddr*)&addr, &size);
 		return { clientSocket };
 	}
 	
