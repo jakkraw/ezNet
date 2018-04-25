@@ -1,10 +1,10 @@
 ﻿  ezNetwork.cpp
-c:\kuba\programming\eznetwork\source\eznetwork.cpp(58): warning C4250: 'ServerImpl': inherits 'MsgInterface::MsgInterface::send_raw' via dominance
-  c:\kuba\programming\eznetwork\source\eznetwork.cpp(36): note: see declaration of 'MsgInterface::send_raw'
-c:\kuba\programming\eznetwork\source\eznetwork.cpp(58): warning C4250: 'ServerImpl': inherits 'MsgInterface::MsgInterface::recieve_raw' via dominance
-  c:\kuba\programming\eznetwork\source\eznetwork.cpp(41): note: see declaration of 'MsgInterface::recieve_raw'
-c:\kuba\programming\eznetwork\source\eznetwork.cpp(62): warning C4250: 'ClientImpl': inherits 'MsgInterface::MsgInterface::send_raw' via dominance
-  c:\kuba\programming\eznetwork\source\eznetwork.cpp(36): note: see declaration of 'MsgInterface::send_raw'
-c:\kuba\programming\eznetwork\source\eznetwork.cpp(62): warning C4250: 'ClientImpl': inherits 'MsgInterface::MsgInterface::recieve_raw' via dominance
-  c:\kuba\programming\eznetwork\source\eznetwork.cpp(41): note: see declaration of 'MsgInterface::recieve_raw'
+c:\kuba\programming\eznetwork\source\ezclient.h(14): warning C4250: 'ezClient': inherits 'MsgInterface::MsgInterface::send_raw' via dominance
+  c:\kuba\programming\eznetwork\source\msginterface.h(13): note: see declaration of 'MsgInterface::send_raw'
+c:\kuba\programming\eznetwork\source\ezclient.h(14): warning C4250: 'ezClient': inherits 'MsgInterface::MsgInterface::recieve_raw' via dominance
+  c:\kuba\programming\eznetwork\source\msginterface.h(18): note: see declaration of 'MsgInterface::recieve_raw'
+c:\kuba\programming\eznetwork\source\ezserver.h(134): warning C4250: 'ezServer': inherits 'MsgInterface::MsgInterface::send_raw' via dominance
+  c:\kuba\programming\eznetwork\source\msginterface.h(13): note: see declaration of 'MsgInterface::send_raw'
+c:\kuba\programming\eznetwork\source\ezserver.h(134): warning C4250: 'ezServer': inherits 'MsgInterface::MsgInterface::recieve_raw' via dominance
+  c:\kuba\programming\eznetwork\source\msginterface.h(18): note: see declaration of 'MsgInterface::recieve_raw'
   ezNetwork.vcxproj -> C:\kuba\programming\ezNetwork\vs15\ezNetwork\Debug\ezNetwork.lib
