@@ -1,12 +1,11 @@
 #pragma once
-#include "ezNetwork.h"
+#include "interface/ezNetwork.h"
 #include "msgInterface.h"
 #include "sockets.h"
-#include <memory>
 #include <stack>
 #include <cassert>
 #include <thread>
-using namespace ezNetwork;
+using namespace ezm;
 using namespace internal;
 
 
@@ -14,8 +13,9 @@ struct Listener
 {
 	SOCKET socket;
 	SOCKADDR_IN addr;
+	std::atomic<bool> listening = true;
 
-	Listener(Address::Port port)
+	Listener(unsigned port)
 	{
 		socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -28,52 +28,39 @@ struct Listener
 		listen(socket, SOMAXCONN);
 	}
 
-	Connection waitForConnection()
+	~Listener()
+	{
+		listening = false;
+		shutdown(socket, SD_BOTH);
+		closesocket(socket);
+	}
+
+	SOCKET waitForConnection()
 	{
 		int size = sizeof(addr);
 		const auto clientSocket = accept(socket, (sockaddr*)&addr, &size);
-		return { clientSocket };
+		return clientSocket;
 	}
 	
 };
 
-struct ezServer : private MsgInterface, Server {
+struct ezServer : virtual internal::Server {
 	std::list<Connection> connections;
 	std::thread connection_thread;
+	Listener listener;
 
-	Address address;
-
-	ezServer(Address address) : address(address) {
+	ezServer(unsigned port) : listener(port) {
 		connection_thread = std::thread(&ezServer::acceptConnections, this);
+		connection_thread.detach();
 	}
 
 	void acceptConnections()
 	{
-		Listener listener(DefaultAddress.port);
-
-		while(true)
+		while(listener.listening)
 		{
 			auto client = listener.waitForConnection();
-			connections.push_back(client);
+			//connections.emplace_back(client, recieved, toSend);
 		}
-
-		/*
-		tcpSocket s;
-		s.bind();
-		s.listen(10);
-
-		while(acceptingConnections){
-			auto c = s->accept();
-			auto clientData = c->recvBlocking<ConnectionData>();
-			
-			ns(my addr ,port , other addr,port);
-			
-
-
-		}
-
-		 
-		 */
 	}
 
 };

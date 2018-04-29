@@ -1,22 +1,19 @@
-#include "../../../source/ezNetwork.h"
 #include "../messages.h"
+#include "../../../source/interface/ezNetwork.h"
 #pragma comment(lib,"ezNetwork.lib")
-using namespace ezNetwork;
+using namespace ezMultiplayer;
 
 int main() {
 
-	auto server = createServer();
-	auto& s = *server;
-
+	Server server;
 	auto greet = Greet();
-
-	s.send(greet);
-
+	server.send(greet);
 	greet.i++;
-	s.send(greet);
-	s.send(greet);
+	server.send(greet);
+	greet.i++;
+	server.send(greet);
 
-	auto greets = s.recieve<Greet>();
+	auto greets = server.recieve<Greet>();
 
 	while(true){}
 

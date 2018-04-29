@@ -6,22 +6,17 @@
 #include <thread>
 #include <atomic>
 
-struct MsgWrapper
-{
-	using Byte = char;
-	using ID = internal::DataFlow::ID;
-	using Size = internal::DataFlow::Size;
-	Size size;
-	ID id;
-};
+#include "msgQueue.h"
 
 struct Connection {
-	MsgQueue revieved, toSend;
-	SOCKET socket;
+	MsgQueue& recieved, &toSend;
+	SOCKET& socket;
 	std::atomic<bool> running = true;
 	std::thread sender, reciever;
-	
-	Connection(SOCKET socket) : 
+
+	Connection(SOCKET& socket, MsgQueue& recieved, MsgQueue& toSend) :
+		recieved(recieved),
+		toSend(toSend),
 		socket(socket),
 		sender(&Connection::sender_thread, this),
 		reciever(&Connection::reciever_thread, this)
@@ -32,117 +27,50 @@ struct Connection {
 
 	void sender_thread()
 	{
-		while(running)
-		{
-			const auto messages = toSend.get();
-
-			for (const auto& it : messages)
-				for (const auto& data : it.second)
-					send(data);
-				
+		while(running){
+			send(toSend.get());
 		}
 	}
 
-	void send(const MsgQueue::Data& data)
+	void send(const MsgQueue::MsgMap&& messages)
 	{
-		::send(socket, data.data(), data.size(), 0);
+		for (const auto& it : messages)
+			for (const auto& data : it.second)
+				if(!send(data)) return;
 	}
 
-	struct Reciever
-	{
-		using Byte = MsgQueue::Byte;
-		using Data = MsgQueue::Data;
-		using Size = DataFlow::Size;
-		using Msg = DataFlow::Msg;
-		using ID = DataFlow::ID;
-		enum class State
-		{
-			Clean, PartiallyRecieved, AnotherInQueue
-		};
-		State state = State::Clean;
-		Byte buffer[1024];
-		SOCKET& socket;
-		Reciever(SOCKET socket) : socket(socket){}
-
-		void clean(MsgQueue& recieved)
-		{
-			const auto size = ::recv(socket, buffer, sizeof(buffer), 0);
-			if (size <= 0) return;
-			if (size < sizeof(Size)) return;
-
-			auto& msgSize = *(Size*)buffer;
-			auto totalMsgSize = msgSize + sizeof(ID) + sizeof(Size);
-
-			if (size < totalMsgSize) {
-				state = State::PartiallyRecieved;
-				return;
-			}
-			if(size > totalMsgSize)
-			{
-				state = State::AnotherInQueue;
-				return;
-			}
-
-
-			recieved.add(Msg(msgSize,))
-
-
-		}
-
-		void recieve(MsgQueue& recieved)
-		{
-			
-
-			switch(state)
-			{
-			case State::Clean:
-				clean(recieved);
-				break;
-			case State::AnotherInQueue:
-				break;
-			case State::PartiallyRecieved:
-				break;
-			}
-
-		
-		}
-	};
-
+	bool send(const Msg& data){
+		return ::send(socket, data.data(), data.size(), 0) > SOCKET_ERROR;
+	}
 
 	void reciever_thread()
 	{
-		Reciever reciever(socket);
-
 		while(running)
-		{
-			
-			reciever.recieve();
-
-		}
+			recieve();
 	}
 
-
-	~Connection()
+	void recieve()
 	{
+		Msg::Size size;
+		auto bytes = ::recv(socket, (char*)&size, sizeof(size), MSG_PEEK | MSG_WAITALL);
+		if (bytes < sizeof(Msg::Size)) return;
+
+		Msg msg(size);
+		bytes = ::recv(socket, msg, msg.size(), MSG_WAITALL);
+		if (bytes < (int)msg.size()) return;
+
+		recieved.add(std::move(msg));
+	}
+
+	~Connection(){
 		running = false;
 		shutdown(socket, SD_BOTH);
 		closesocket(socket);
 	}
 
-
-
 };
 
-SOCKET createClientSocket(Address server)
-{
-	SOCKET socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	SOCKADDR_IN addr;
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = inet_addr(server.ip);
-	addr.sin_port = htons(server.port);
-	::connect(socket, (sockaddr*)&addr, sizeof(addr));
-	return socket;
-}
+
 
 
 #include <list>
@@ -155,7 +83,7 @@ std::list<std::string> myIPList()
 	const auto host = gethostbyname(hostName);
 	if (!host) return ipList;
 
-	for (int i = 0; host->h_addr_list[i] != 0; ++i) {
+	for (int i = 0; host->h_addr_list[i] != nullptr; ++i) {
 		in_addr address;
 		memcpy(&address, host->h_addr_list[i], sizeof(in_addr));
 		ipList.emplace_back(inet_ntoa(address));

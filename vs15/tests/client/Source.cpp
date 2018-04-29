@@ -1,14 +1,14 @@
-#include "../../../source/ezNetwork.h"
+#include "../../../source/interface/ezNetwork.h"
 #include "../messages.h"
 #pragma comment(lib,"ezNetwork")
-using namespace ezNetwork;
+
+using namespace ezm;
 
 int main() {
-	auto client = createClient();
-
-	client->send(Greet());
+	Client client;
+	client.send(Greet());
 
 	std::vector<Greet> greets;
-	do greets = client->recieve<Greet>();
+	do greets = client.recieve<Greet>();
 	while (greets.empty());
 }

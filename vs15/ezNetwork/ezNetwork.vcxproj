@@ -125,9 +125,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\ezClient.h" />
-    <ClInclude Include="..\..\source\ezNetwork.h" />
     <ClInclude Include="..\..\source\ezServer.h" />
-    <ClInclude Include="..\..\source\msgInterface.h" />
+    <ClInclude Include="..\..\source\interface\ezNetwork.h" />
+    <ClInclude Include="..\..\source\interface\internal.h" />
+    <ClInclude Include="..\..\source\interface\types.h" />
+    <ClInclude Include="..\..\source\msgQueue.h" />
     <ClInclude Include="..\..\source\sockets.h" />
   </ItemGroup>
   <ItemGroup>

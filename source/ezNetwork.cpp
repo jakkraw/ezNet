@@ -1,15 +1,16 @@
-#include "ezNetwork.h"
+#include "interface/internal.h"
 #include "ezClient.h"
 #include "ezServer.h"
+#include "sockets.h"
 
 
-namespace ezNetwork {
+namespace ezMultiplayer {
 	namespace internal{
-		Server* _createServer(Address address) {
-			return new ezServer(address);
+		Server* _createServer(unsigned port) {
+			return new ezServer(port);
 		}
 
-		Client* _createClient(Address server) {
+		Client* _createClient(unsigned port) {
 			return new ezClient(server);
 		}
 
@@ -23,4 +24,3 @@ namespace ezNetwork {
 	}
 }
 
-#include "sockets.h"
