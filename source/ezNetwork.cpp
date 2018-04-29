@@ -1,17 +1,16 @@
 #include "interface/internal.h"
 #include "ezClient.h"
 #include "ezServer.h"
-#include "sockets.h"
 
 
-namespace ezMultiplayer {
+namespace ezm {
 	namespace internal{
-		Server* _createServer(unsigned port) {
-			return new ezServer(port);
+		Server* _createServer(Port listenPort) {
+			return new ezServer(listenPort);
 		}
 
-		Client* _createClient(unsigned port) {
-			return new ezClient(server);
+		Client* _createClient(Port searchPort) {
+			return new ezClient(searchPort);
 		}
 
 		void _deleteServer(Server*server) {

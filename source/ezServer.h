@@ -1,7 +1,6 @@
 #pragma once
 #include "interface/ezNetwork.h"
-#include "msgInterface.h"
-#include "sockets.h"
+#include "connection.h"
 #include <stack>
 #include <cassert>
 #include <thread>
@@ -45,11 +44,12 @@ struct Listener
 };
 
 struct ezServer : virtual internal::Server {
+	MsgQueue toSend, recieved;
 	std::list<Connection> connections;
 	std::thread connection_thread;
 	Listener listener;
 
-	ezServer(unsigned port) : listener(port) {
+	ezServer(Port port) : listener(port) {
 		connection_thread = std::thread(&ezServer::acceptConnections, this);
 		connection_thread.detach();
 	}
@@ -59,8 +59,22 @@ struct ezServer : virtual internal::Server {
 		while(listener.listening)
 		{
 			auto client = listener.waitForConnection();
-			//connections.emplace_back(client, recieved, toSend);
+			printf("connected port %d\n", client);
+			connections.emplace_back(client, recieved, toSend);
+			
 		}
+	}
+
+
+	void _send(const Size& size, const ID& id, DataPtr data) override {
+		toSend.add({size,id,data});
+	}
+
+	void _recieve(const ID& id, IVector& target) override {
+		const auto msgs = recieved.get(id);
+		target.reserve(msgs.size());
+		for (const auto& msg : msgs)
+			target.emplace_back(msg.payload());
 	}
 
 };

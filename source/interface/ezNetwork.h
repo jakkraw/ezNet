@@ -9,39 +9,37 @@ namespace ezm
 	constexpr IP Localhost{ "127.0.0.1" };
 	const Address DefaultAddress{ Localhost, DefaultPort };
 
-
-
 	struct Server
 	{
-		Server(Port port = DefaultPort) 
-			: server(internal::_createServer(port)) {}
+		Server(Port listen = DefaultPort){
+			_server.reset(internal::_createServer(listen));
+		}
 
 		template<typename Msg>
-		void send(const Msg& msg) { server->send(msg); }
+		void send(const Msg& msg) { _server->send(msg); }
 
 		template<typename Msg>
-		std::vector<Msg> recieve() { return server->recieve<Msg>(); }
+		std::vector<Msg> recieve() { return _server->recieve<Msg>(); }
 
 	private:
 		using ServerPtr = std::unique_ptr<internal::Server, void(*)(internal::Server*)>;
-		ServerPtr server = { nullptr, internal::_deleteServer };
+		ServerPtr _server = { nullptr, internal::_deleteServer };
 	};
-
-
 
 	struct Client
 	{
-		Client(Port port = DefaultPort)
-			: client(internal::_createClient(port)) {}
+		Client(Port search = DefaultPort){
+			_client.reset(internal::_createClient(search));
+		}
 
 		template<typename Msg>
-		void send(const Msg& msg) { client->send(msg); }
+		void send(const Msg& msg) { _client->send(msg); }
 
 		template<typename Msg>
-		std::vector<Msg> recieve() { return client->recieve<Msg>(); }
+		std::vector<Msg> recieve() { return _client->recieve<Msg>(); }
 
 	private:
 		using ClientPtr = std::unique_ptr<internal::Client, void(*)(internal::Client*)>;
-		ClientPtr client = { nullptr, internal::_deleteClient };
+		ClientPtr _client = { nullptr, internal::_deleteClient };
 	};
 }

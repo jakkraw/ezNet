@@ -1,46 +1,42 @@
 #pragma once
 #include "interface/internal.h"
 #include "interface/types.h"
-#include "sockets.h"
+#include "connection.h"
 using namespace ezm;
 using namespace internal;
 
+struct ezClient : ezm::internal::Client {
 
-struct ezClient : Client {
-
-
+	MsgQueue toSend, recieved;
 	Connection connection;
 
-	static SOCKET createClientSocket(Address server)
+	static SOCKET createClientSocket(Port serachPort)
 	{
-		SOCKET socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		auto socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		SOCKADDR_IN addr;
 		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = inet_addr(server.ip);
-		addr.sin_port = htons(server.port);
-		::connect(socket, (sockaddr*)&addr, sizeof(addr));
+		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		addr.sin_port = htons(serachPort);
+		auto res = ::connect(socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+		if (res < 0) return -1;
 		return socket;
 	}
 
-	ezClient(Address address) : connection(createClientSocket(address))
+	ezClient(Port serachPort)
+		: connection(createClientSocket(serachPort), recieved, toSend)
 	{
 		
 	}
 
-
-	MsgQueue toSend, recieved;
-
-	void _send(const Size&, const ID&, DataPtr) override {
-		//toSend.add(msg);
+	void _send(const Size& size, const ID& id, DataPtr data) override {
+		toSend.add({size, id, data});
 	}
 
 	void _recieve(const ID& id, IVector& target) override {
-		const auto data = recieved.get(id);
-
-		target.reserve(data.size());
-		for (const auto& msg : data)
-			target.emplace_back(msg.data() + sizeof(Msg::Header));
+		const auto msgs = recieved.get(id);
+		target.reserve(msgs.size());
+		for (const auto& msg : msgs)
+			target.emplace_back(msg.payload());
 	}
-
 
 };

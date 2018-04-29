@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <typeinfo>
+#include "types.h"
 
 namespace ezm
 {
@@ -32,7 +33,7 @@ namespace ezm
 
 			template<typename Msg>
 			void send(const Msg& msg) { 
-				_send(size<Msg>(), id<Msg>(), &msg); 
+				_send(size<Msg>(), id<Msg>(), reinterpret_cast<DataPtr>(&msg));
 			}
 
 			template<typename Msg>
@@ -46,14 +47,14 @@ namespace ezm
 			virtual void _recieve(const ID&, IVector&) = 0;
 			virtual void _send(const Size&, const ID&, DataPtr) = 0;
 		};
-		extern __declspec(dllexport) Server* _createServer(unsigned port);
+		extern __declspec(dllexport) Server* _createServer(Port listenPort);
 		extern __declspec(dllexport) void _deleteServer(Server*);
 
 		struct Client {
 
 			template<typename Msg>
 			void send(const Msg& msg) {
-				_send(size<Msg>(), id<Msg>(), &msg);
+				_send(size<Msg>(), id<Msg>(), reinterpret_cast<DataPtr>(&msg));
 			}
 
 			template<typename Msg>
@@ -67,7 +68,7 @@ namespace ezm
 			virtual void _recieve(const ID&, IVector&) = 0;
 			virtual void _send(const Size&, const ID&, DataPtr) = 0;
 		};
-		extern __declspec(dllexport) Client* _createClient(unsigned port);
+		extern __declspec(dllexport) Client* _createClient(Port searchPort);
 		extern __declspec(dllexport) void _deleteClient(Client*);
 	}
 }

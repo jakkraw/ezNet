@@ -130,7 +130,7 @@
     <ClInclude Include="..\..\source\interface\internal.h" />
     <ClInclude Include="..\..\source\interface\types.h" />
     <ClInclude Include="..\..\source\msgQueue.h" />
-    <ClInclude Include="..\..\source\sockets.h" />
+    <ClInclude Include="..\..\source\connection.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\source\ezNetwork.cpp" />
