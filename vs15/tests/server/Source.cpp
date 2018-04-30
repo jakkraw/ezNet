@@ -4,13 +4,13 @@
 #include <chrono>
 #include <conio.h>
 #pragma comment(lib,"ezNetwork.lib")
-using namespace ezm;
+
 
 #include <thread>
 
 
 
-void print_thread(Server* server)
+void print_thread(lan::Server* server)
 {
 	while (true) {
 		for (auto& g : server->recieve<Greet>())
@@ -25,7 +25,7 @@ void print_thread(Server* server)
 }
 
 int main() {
-	Server server;
+	lan::Server server;
 
 	std::thread t(&print_thread, &server);
 	

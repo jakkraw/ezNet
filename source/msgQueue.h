@@ -7,9 +7,9 @@
 
 struct Msg
 {
-	using Type = unsigned;
-	using Sender = unsigned;
-	using Size = unsigned;
+	using Type = size_t;
+	using Sender = size_t;
+	using Size = size_t;
 	using Byte = char;
 	using Data = const Byte*;
 	std::vector<Byte> buffer;

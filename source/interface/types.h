@@ -1,9 +1,10 @@
 #pragma once
+#include <string>
 
-namespace ezm
+namespace lan
 {
-	using Port = unsigned;
-	using IP = const char*;
+	using Port = unsigned short;
+	using IP = std::string;
 
 	struct Address {
 		const IP ip;

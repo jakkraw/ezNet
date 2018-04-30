@@ -3,7 +3,7 @@
 #include <typeinfo>
 #include "types.h"
 
-namespace ezm
+namespace lan
 {
 	namespace internal{
 
@@ -30,6 +30,7 @@ namespace ezm
 		static constexpr Size size() { return sizeof(Msg); }
 
 		struct Server {
+			virtual ~Server() = default;
 
 			template<typename Msg>
 			void send(const Msg& msg) { 
@@ -47,10 +48,11 @@ namespace ezm
 			virtual void _recieve(const ID&, IVector&) = 0;
 			virtual void _send(const Size&, const ID&, DataPtr) = 0;
 		};
-		extern __declspec(dllexport) Server* _createServer(Port listenPort);
+		extern __declspec(dllexport) Server* _createServer();
 		extern __declspec(dllexport) void _deleteServer(Server*);
 
 		struct Client {
+			virtual ~Client() = default;
 
 			template<typename Msg>
 			void send(const Msg& msg) {
@@ -68,7 +70,7 @@ namespace ezm
 			virtual void _recieve(const ID&, IVector&) = 0;
 			virtual void _send(const Size&, const ID&, DataPtr) = 0;
 		};
-		extern __declspec(dllexport) Client* _createClient(Port searchPort);
+		extern __declspec(dllexport) Client* _createClient(const Address&);
 		extern __declspec(dllexport) void _deleteClient(Client*);
 	}
 }

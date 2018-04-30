@@ -3,14 +3,14 @@
 #include "ezServer.h"
 
 
-namespace ezm {
+namespace lan {
 	namespace internal{
-		Server* _createServer(Port listenPort) {
-			return new ezServer(listenPort);
+		Server* _createServer() {
+			return new EzServer();
 		}
 
-		Client* _createClient(Port searchPort) {
-			return new ezClient(searchPort);
+		Client* _createClient(const Address& address) {
+			return new EzClient(address);
 		}
 
 		void _deleteServer(Server*server) {

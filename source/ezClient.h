@@ -1,32 +1,31 @@
 #pragma once
 #include "interface/internal.h"
 #include "interface/types.h"
-#include "connection.h"
-using namespace ezm;
+#include "Connectione.h"
+#include "interface/ezNetwork.h"
+using namespace lan;
 using namespace internal;
 
-struct ezClient : ezm::internal::Client {
+struct EzClient : lan::internal::Client {
 
 	MsgQueue toSend, recieved;
-	Connection connection;
+	::Connectione connection;
 
-	static SOCKET createClientSocket(Port serachPort)
+	static SOCKET createClientSocket(const Address& address)
 	{
 		auto socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		SOCKADDR_IN addr;
 		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		addr.sin_port = htons(serachPort);
+		addr.sin_addr.s_addr = inet_addr(address.ip.c_str());
+		addr.sin_port = htons(address.port);
 		auto res = ::connect(socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 		if (res < 0) return -1;
 		return socket;
 	}
 
-	ezClient(Port serachPort)
-		: connection(createClientSocket(serachPort), recieved, toSend)
-	{
-		
-	}
+	EzClient(const Address& address)
+		: connection(createClientSocket(address), recieved, toSend)
+	{}
 
 	void _send(const Size& size, const ID& id, DataPtr data) override {
 		toSend.add({size, id, data});

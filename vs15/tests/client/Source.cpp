@@ -4,13 +4,13 @@
 #include <chrono>
 #include <conio.h>
 #pragma comment(lib,"ezNetwork.lib")
-using namespace ezm;
+using namespace lan;
 
 #include <thread>
 
-void print_thread(Client* server)
+void print_thread(Connection* server)
 {
-	while (true) {
+	while (server) {
 		for (auto& g : server->recieve<Greet>())
 			g.print();
 
@@ -23,52 +23,32 @@ void print_thread(Client* server)
 }
 
 int main() {
-
-	ezm::ServerFinder finder;
-	auto server = finder.connectToAny(2s);
-
-	auto search = finder.search<Greet>(1.5s);
-
-	std::list<ServerInfo> servers;
-	while(servers.size() < 2)
+	ServerFinder finder;
+	ConnectionPtr server;
+	while(true)
 	{
-		servers = search.snapshot();
-		print(servers);
+		auto servers = finder.getAllFound();
+		if(!servers.empty()){
+			server = servers.front().connect();
+			if (server) break;
+		}
+
 	}
 
-	auto server = servers.top().connect();
-	
 
-
-	finder.searchFor(2s, Port(12345));
-	auto servers = ezm::findAllServers(ID<TestGame>,Timeout(2s), Limit(1), Port(12345));
-	if (servers.empty()) return;
-
-	try
-	{
-		auto server = ezm::connect(servers.top());
-	}catch(ezm::NoConnection err)
-	{
-		
-	}
-	
-
-
-
-	Client client;
-	std::thread t(&print_thread, &client);
+	std::thread t(&print_thread, server.get());
 
 	while (true)
 		switch (_getch())
 		{
 		case '1':
-			server.send(Greet());
+			server->send(Greet());
 			break;
 		case'2':
-			server.send(Goodbye("pozdrowionka"));
+			server->send(Goodbye("pozdrowionka"));
 			break;
 		case'3':
-			server.send(Goodbye("nie pozdrawiam"));
+			server->send(Goodbye("nie pozdrawiam"));
 			break;
 		case'q': return 0;
 		}
