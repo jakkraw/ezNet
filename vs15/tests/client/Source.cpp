@@ -1,14 +1,15 @@
 #include "../messages.h"
-#include "../../../source/interface/ezNetwork.h"
 #include <thread>
 #include <chrono>
 #include <conio.h>
+
 #pragma comment(lib,"ezNetwork.lib")
-using namespace lan;
 
 #include <thread>
+#include "../../../source/ezClient.h"
+#include "../../../source/serverFinder.h"
 
-void print_thread(Connection* server)
+void print_thread(EzClient* server)
 {
 	while (server) {
 		for (auto& g : server->recieve<Greet>())
@@ -24,19 +25,16 @@ void print_thread(Connection* server)
 
 int main() {
 	ServerFinder finder;
-	ConnectionPtr server;
-	while(true)
-	{
-		auto servers = finder.getAllFound();
-		if(!servers.empty()){
-			server = servers.front().connect();
-			if (server) break;
-		}
 
+	EzClient* server;
+	while(true){ 
+		auto servers = finder.servers();
+		if(!servers.empty())
+			if (server = new EzClient(servers.front())) break;
 	}
 
 
-	std::thread t(&print_thread, server.get());
+	std::thread t(&print_thread, server);
 
 	while (true)
 		switch (_getch())
@@ -52,7 +50,4 @@ int main() {
 			break;
 		case'q': return 0;
 		}
-
-	//t.join();
-	return 0;
 }

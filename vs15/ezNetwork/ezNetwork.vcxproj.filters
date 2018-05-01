@@ -4,32 +4,9 @@
     <ClInclude Include="..\..\source\ezServer.h" />
     <ClInclude Include="..\..\source\ezClient.h" />
     <ClInclude Include="..\..\source\msgQueue.h" />
-    <ClInclude Include="..\..\source\interface\ezNetwork.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\interface\internal.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\interface\types.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\interface\ServerFinder.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\Connectione.h" />
-    <ClInclude Include="..\..\source\interface\serverInfo.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\source\interface\connection.h">
-      <Filter>interface</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\source\ezNetwork.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="interface">
-      <UniqueIdentifier>{06dbf85f-f0cd-45dc-8a6d-c0f5810a59d6}</UniqueIdentifier>
-    </Filter>
+    <ClInclude Include="..\..\source\socket.h" />
+    <ClInclude Include="..\..\source\msg.h" />
+    <ClInclude Include="..\..\source\address.h" />
+    <ClInclude Include="..\..\source\serverFinder.h" />
   </ItemGroup>
 </Project>

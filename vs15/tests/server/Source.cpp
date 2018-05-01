@@ -1,21 +1,18 @@
-#include "../messages.h"
-#include "../../../source/interface/ezNetwork.h"
+
 #include <thread>
 #include <chrono>
 #include <conio.h>
 #pragma comment(lib,"ezNetwork.lib")
 
+#include "../messages.h"
+#include "../../../source/ezServer.h"
 
-#include <thread>
-
-
-
-void print_thread(lan::Server* server)
+void print_thread(EzServer* server)
 {
 	while (true) {
 		for (auto& g : server->recieve<Greet>())
 			g.print();
-
+		
 		for (auto& g : server->recieve<Goodbye>())
 			g.print();
 
@@ -25,7 +22,7 @@ void print_thread(lan::Server* server)
 }
 
 int main() {
-	lan::Server server;
+	EzServer server;
 
 	std::thread t(&print_thread, &server);
 	
@@ -36,14 +33,12 @@ int main() {
 			server.send(Greet());
 			break;
 		case'2':
-			server.send(Goodbye("pozdrowionka"));
+			//server.send(Goodbye("pozdrowionka"));
 			break;
 		case'3':
 			server.send(Goodbye("nie pozdrawiam"));
 			break;
 		case'q': return 0;
 		}
-	
-	
-	return 0;
+
 }
