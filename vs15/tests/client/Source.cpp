@@ -2,16 +2,18 @@
 #include <thread>
 #include <chrono>
 #include <conio.h>
+#include <atomic>
 
 #pragma comment(lib,"ezNetwork.lib")
 
 #include <thread>
-#include "../../../source/ezClient.h"
+#include "../../../source/Connection.h"
 #include "../../../source/serverFinder.h"
+std::atomic<bool> active = true;
 
-void print_thread(EzClient* server)
+void print_thread(Connection* server)
 {
-	while (server) {
+	while (active) {
 		for (auto& g : server->recieve<Greet>())
 			g.print();
 
@@ -24,19 +26,22 @@ void print_thread(EzClient* server)
 }
 
 int main() {
+while(true)
+{
 	ServerFinder finder;
-
-	EzClient* server;
-	while(true){ 
+	Connection* server = nullptr;
+	printf("SeachringForServer\n");
+	while (true) {
 		auto servers = finder.servers();
-		if(!servers.empty())
-			if (server = new EzClient(servers.front())) break;
+		if (!servers.empty())
+			if (server = new Connection(servers.front())) break;
 	}
 
-
+	printf("ServerFound\n");
+	active = true;
 	std::thread t(&print_thread, server);
 
-	while (true)
+	while (true) {
 		switch (_getch())
 		{
 		case '1':
@@ -48,6 +53,21 @@ int main() {
 		case'3':
 			server->send(Goodbye("nie pozdrawiam"));
 			break;
-		case'q': return 0;
+		case'q': 
+			active = false;
+			t.join();
+			return 0;
+			
 		}
+
+		if (!server->isValid()) break;
+	}
+
+
+	printf("ServerFoundInvalid\n");
+	active = false;
+	t.join();
+	delete server;
+}
+	
 }

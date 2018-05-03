@@ -1,32 +1,58 @@
 #pragma once
 #include <thread>
-#include "msgQueue.h"
+#include "Queue.h"
 #include "socket.h"
 #include "serverFinder.h"
+#include <functional>
+#include "Connection.h"
+
+
+struct Connections {
+	std::list<Connection> connetions;
+	std::mutex m;
+
+	void add(Socket&& s) {
+		std::lock_guard<std::mutex> lock(m);
+		connetions.emplace_back(std::move(s));
+	}
+
+	void forEach(const std::function<void(Connection&)>& func) {
+		std::lock_guard<std::mutex> lock(m);
+		for (auto& connection : connetions)
+			func(connection);
+	}
+
+	void deleteInvalid() {
+		std::lock_guard<std::mutex> lock(m);
+		connetions.remove_if([](const Connection& c) { return !c.isValid(); });
+	}
+
+};
 
 struct Listener
 {
 	Socket socket{ Socket::Type::TCP };
 	std::atomic<bool> listening = true;
-	std::list<Socket> clients;
-	std::condition_variable cv;
-	std::mutex m;
-	std::thread thread;
+	Connections& connections;
+	std::thread inserter, deleter;
 
-	Listener(){
+	Listener(Connections& c) : connections(c){
 		socket.bind();
 		socket.listen();
-		thread = std::thread{ [this]()
+		inserter = std::thread{ [this]()
 		{
 			while (listening) {
 				auto client = socket.accept();
-				if (client.isValid()) {
-					{
-						std::lock_guard<std::mutex> lock(m);
-						clients.emplace_back(std::move(client));
-					}
-					cv.notify_all();
-				}
+				if (client.first.isValid())
+					printf("connected port:%d ip:%s\n", client.second.port, client.second.ip.c_str()), connections.add(std::move(client.first));
+			}
+		} };
+
+		deleter = std::thread{ [this]()
+		{
+			while (listening) {
+				connections.deleteInvalid();
+				std::this_thread::sleep_for(16ms);
 			}
 		} };
 	}
@@ -36,80 +62,28 @@ struct Listener
 	~Listener(){
 		listening = false;
 		socket.shutdown();
-		thread.join();
+		socket.close();
+		inserter.join();
+		deleter.join();
 	}
-
-	std::list<Socket> getAnyClients() {
-		std::unique_lock<std::mutex> lock(m);
-		cv.wait(lock, [this] {return !clients.empty(); });
-		return std::move(clients);
-	};
-
-	std::list<Socket> getClients() {
-		std::lock_guard<std::mutex> lock(m);
-		return std::move(clients);
-	};
-	
 };
 
-struct EzServer {
-	MsgQueue toSend, recieved;
-	std::list<Socket> sockets;
-	std::thread connection_thread, reciever;
+struct Server {
+	Connections connections;
 	Listener listener;
 	Broadcaster broadcaster;
-	std::atomic<bool> active;
 
-	EzServer() : broadcaster(listener.port()) {
-		connection_thread = std::thread{ [this]()
-			{
-				while (active)
-				{
-					for (auto&& client : listener.getClients()) {
-						printf("connected port %d\n", client.address().port);
-						sockets.emplace_back(std::move(client));
-					}
-
-					for (auto&& entry : toSend.get())
-						for (auto&& msg : entry.second)
-							for (auto& socket : sockets)
-								socket.send(msg);
-				}
-			} };
-
-		reciever = std::thread{ [this]()
-		{
-			while (active)
-			{
-				for (auto& socket : sockets){
-					auto package = socket.recieve();
-					if(package.valid) recieved.add(std::move(package.msg));
-				}
-				
-			}
-		} };
-
-	}
-
-	~EzServer() {
-		active = false;
-		connection_thread.join();
-		reciever.join();
-	}
-
+	Server() : listener(connections), broadcaster(listener.port()) {}
 
 	template<typename Data>
 	void send(const Data& msg) {
-		toSend.add({ Msg::size<Data>(), Msg::type<Data>(), (Msg::Data)&msg });
+		connections.forEach([=](Connection&c){ c.send(msg); });
 	}
 
 	template<typename Data>
-	std::vector<Data> recieve() {
-		const auto msgs = recieved.get(Msg::type<Data>());
-		std::vector<Data> msgs1;
-		msgs1.reserve(msgs.size());
-		for (const auto& msg : msgs)
-			msgs1.emplace_back(std::move((Data&)*msg.payload()));
-		return msgs1;
+	std::list<Data> recieve() {
+		std::list<Data> list;
+		connections.forEach([&list](Connection&c) { list.splice(list.end(), c.recieve<Data>()); });
+		return list;
 	}
 };

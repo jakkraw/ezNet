@@ -10,7 +10,6 @@
 
 struct Socket {
 	enum class Type { TCP , UDP };
-	std::atomic<bool> valid = true;
 	SOCKET socket;
 
 	Socket(const Type& type) {
@@ -19,19 +18,27 @@ struct Socket {
 		else
 			socket = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
-		if (socket == INVALID_SOCKET) setInvalid();
 	}
 
-	Socket(const SOCKET& socket) : socket(socket) {
-		if (socket == INVALID_SOCKET) setInvalid();
-	}
+	Socket(const SOCKET& socket) : socket(socket) {}
 
-	Socket(Socket&& socket)
-		: valid(socket.valid.load()), socket(socket.socket) {}
+	Socket(Socket&& socket) : socket(socket.socket) {
+		socket.socket = INVALID_SOCKET;
+	}
 
 	void setInvalid() {
-		valid = false;
 		printError();
+		close();
+		socket = INVALID_SOCKET;
+	}
+
+	void close() {
+		if (!isValid()) return;
+		const auto result = closesocket(socket);
+		if (result == SOCKET_ERROR) {
+			socket = INVALID_SOCKET;
+			printError();
+		}
 	}
 
 	static void printError() {
@@ -45,21 +52,24 @@ struct Socket {
 	}
 
 	void setBroadcast(bool enable) {
+		if (!isValid()) return;
 		const auto result = setsockopt(socket, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<char *>(&enable), sizeof(enable));
 		if (result == SOCKET_ERROR) setInvalid();
 	}
 
 	void setReusable(bool enable) {
+		if (!isValid()) return;
 		const auto result = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&enable), sizeof(enable));
 		if (result == SOCKET_ERROR) setInvalid();
 	}
 
 	void shutdown() {
+		if (!isValid()) return;
 		if (::shutdown(socket, SD_BOTH) == SOCKET_ERROR) setInvalid();
 	}
 
 	bool isValid() const {
-		return valid;
+		return socket != INVALID_SOCKET;
 	}
 
 	template<class Data>
@@ -77,6 +87,8 @@ struct Socket {
 
 	template<class Data>
 	Recieved<Data> recieveAny() {
+
+		if (!isValid()) return {};
 		sockaddr_in sender;
 		int senderSize = sizeof(sender);
 
@@ -89,29 +101,26 @@ struct Socket {
 		if (typeid(Data).hash_code() != msg.header().type) goto badMsg;
 
 		return{ { inet_ntoa(sender.sin_addr), ntohs(sender.sin_port) } , msg.payloadAs<Data>() };
-
-		severeError:
-		setInvalid();
-
-		badMsg:
-		return {};
+		severeError: printf("udpRecieve:") , printError();
+		badMsg: return {};
 	}
 
 	template<class Data>
 	bool sendTo(const Address& address, const Data& data ) {
-
+		if (!isValid()) return false;
 		sockaddr_in reciever = sockaddr_in();
 		reciever.sin_family = AF_INET;
 		reciever.sin_port = htons(address.port);
 		reciever.sin_addr.s_addr = inet_addr(address.ip.c_str());
 
-		auto msg = createMsg(data);
+		Msg msg{ Msg::toMsg(data) };
 		const auto result = sendto(socket, msg, msg.size(), 0, reinterpret_cast<const sockaddr*>(&reciever), sizeof(reciever));
-		if (result == SOCKET_ERROR)  setInvalid();
+		if (result == SOCKET_ERROR) printf("udpSend:"), printError();
 		return result > SOCKET_ERROR;
 	}
 
 	bool bind(const Port& port = 0, const IP& ip = "0.0.0.0") {
+		if (!isValid()) return false;
 		sockaddr_in addr = sockaddr_in();
 		addr.sin_family = AF_INET;
 		addr.sin_port = htons(port);
@@ -123,12 +132,14 @@ struct Socket {
 	}
 
 	bool listen() {
+		if (!isValid()) return false;
 		const auto result = ::listen(socket, SOMAXCONN);
 		if (result == SOCKET_ERROR) setInvalid();
 		return result > SOCKET_ERROR;
 	}
 
 	Address address() {
+		if (!isValid()) return {"0.0.0.0", 0};
 		sockaddr_in addr;
 		int size = sizeof(addr);
 		const auto result = getsockname(socket, reinterpret_cast<sockaddr*>(&addr), &size);
@@ -137,6 +148,7 @@ struct Socket {
 	}
 
 	bool connect(const Address& address) {
+		if (!isValid()) return false;
 		SOCKADDR_IN addr;
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = inet_addr(address.ip.c_str());
@@ -147,17 +159,22 @@ struct Socket {
 		return result > SOCKET_ERROR;
 	}
 
-	Socket accept() {
+
+	std::pair<Socket,Address> accept() {
+		if (!isValid()) return{ Socket{ INVALID_SOCKET }, Address{"0.0.0.0", 0} };
 		sockaddr_in addr = sockaddr_in();
 		int size = sizeof(addr);
 		const auto client = ::accept(socket, reinterpret_cast<sockaddr*>(&addr), &size);
 		if (client == INVALID_SOCKET) setInvalid();
 
-		return{ client };
+		return{ Socket{client}, Address{ inet_ntoa(addr.sin_addr), ntohs(addr.sin_port) } };
 	}
 
 	bool send(const Msg& msg) {
-		return ::send(socket, msg, msg.size(), 0) > SOCKET_ERROR;
+		if (!isValid()) return false;
+		const auto result = ::send(socket, msg, msg.size(), 0);
+		if (result == SOCKET_ERROR) setInvalid();
+		return  result > SOCKET_ERROR;
 	}
 
 	struct Package {
@@ -175,22 +192,31 @@ struct Socket {
 	};
 
 	Package recieve() {
+		if (!isValid()) return {};
 		Msg::Size size;
-		if (::recv(socket, reinterpret_cast<char*>(&size), sizeof(size), MSG_PEEK) == sizeof(Msg::Size)){
+
+		const auto result = ::recv(socket, reinterpret_cast<char*>(&size), sizeof(size), MSG_PEEK);
+		if (result == SOCKET_ERROR) goto severeError;
+		if (result != sizeof(Msg::Size)) goto badMsg;
+
+		{
 			Msg msg(size);
-			if (::recv(socket, msg, msg.size(), MSG_WAITALL) == static_cast<int>(msg.size())){
-				msg.setSender(socket);
-				return std::move(msg);
-			}
+			const auto result = ::recv(socket, msg, msg.size(), MSG_WAITALL);
+			if (result == SOCKET_ERROR) goto severeError;
+			if (result != static_cast<int>(msg.size())) goto badMsg;
+
+			msg.setSender(socket);
+			return std::move(msg);
 		}
-		return {};
+		
+		severeError: setInvalid();
+		badMsg: return{};
 	}
 
 
 	~Socket() {
-		if (socket == INVALID_SOCKET) return;
-		const auto result = closesocket(socket);
-		if (result == SOCKET_ERROR) setInvalid();
+		close();
 	}
 
 };
+

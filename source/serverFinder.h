@@ -30,16 +30,16 @@ namespace Msgs {
 struct Broadcaster {
 	std::atomic<bool> running = true;
 	const Port port;
+	Socket s{ Socket::Type::UDP };
 	std::thread searcher{ [this]()
 	{
-		Socket s{ Socket::Type::UDP };
-		s.setBroadcast(true);
-		s.setReusable(true);
-		s.bind(discoverPort);
+		this->s.setBroadcast(true);
+		this->s.setReusable(true);
+		this->s.bind(discoverPort);
 
 		while (this->running) {
-			const auto msg = s.recieveAny<Msgs::ServerSearch>();
-			if (msg.valid) s.sendTo(msg.from, Msgs::ServerLocation{ this->port });
+			const auto msg = this->s.recieveAny<Msgs::ServerSearch>();
+			if (msg.valid) this->s.sendTo(msg.from, Msgs::ServerLocation{ this->port });
 		}
 	} };
 
@@ -47,6 +47,8 @@ struct Broadcaster {
 
 	~Broadcaster() {
 		running = false;
+		s.shutdown();
+		s.close();
 		searcher.join();
 	}
 };
@@ -90,6 +92,8 @@ struct ServerFinder {
 
 	~ServerFinder() {
 		running = false;
+		socket.shutdown();
+		socket.close();
 		searcher.join();
 		reciever.join();
 	}
@@ -120,7 +124,7 @@ struct ServerFinder {
 
 	static std::list<IP> possibleBroadcasts(const IP& ip) {
 		std::list<IP> broadcasts;
-		in_addr address;
+		in_addr address{};
 		address.s_addr = inet_addr(ip.c_str());
 
 		broadcasts.emplace_back(inet_ntoa(address));

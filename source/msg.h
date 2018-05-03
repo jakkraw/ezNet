@@ -26,7 +26,12 @@ struct Msg
 		Sender sender;
 	};
 
-	Msg(const Size& size)
+	template<typename Data>
+	static Msg toMsg(const Data& data) {
+		return{ size<Data>(),type<Data>(), &data };
+	}
+
+	explicit Msg(const Size& size)
 		: buffer(sizeof(Header) + size) {}
 
 	Msg(const Size& size, const Type& id, const void* data)
@@ -40,24 +45,21 @@ struct Msg
 	}
 
 	Msg(Msg&& msg) noexcept : buffer(std::move(msg.buffer)) {}
-	Msg(Msg& msg) noexcept : buffer(msg.buffer) {}
 
 	void setSender(Sender sender) { header().sender = sender; }
 	Header& header() const { return (Header&)buffer[0]; }
 	Data payload() const { return Data(&buffer[sizeof(Header)]); }
-	Size size() const { return static_cast<Size>(buffer.size()); }
+	Size size() const {
+		auto s = buffer.size();
+		
+		return buffer.size();
+	}
 	Size payloadSize() const { return header().size; }
-	Type& id() const { return header().type; }
+	Type id() const { return header().type; }
 
 	operator const char*() const { return buffer.data(); }
 	operator char*() { return buffer.data(); }
 
 	template<typename Data>
-	Data& payloadAs() { return (Data&)*payload(); }
+	const Data& payloadAs() const { return (const Data&)*payload(); }
 };
-
-
-template<class Data>
-Msg createMsg(const Data& data) {
-	return { sizeof(Data),typeid(Data).hash_code(),&data };
-}

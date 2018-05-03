@@ -125,10 +125,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\address.h" />
-    <ClInclude Include="..\..\source\ezClient.h" />
-    <ClInclude Include="..\..\source\ezServer.h" />
+    <ClInclude Include="..\..\source\Connection.h" />
+    <ClInclude Include="..\..\source\Server.h" />
     <ClInclude Include="..\..\source\msg.h" />
-    <ClInclude Include="..\..\source\msgQueue.h" />
+    <ClInclude Include="..\..\source\Queue.h" />
     <ClInclude Include="..\..\source\serverFinder.h" />
     <ClInclude Include="..\..\source\socket.h" />
   </ItemGroup>

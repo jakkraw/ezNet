@@ -5,11 +5,12 @@
 #pragma comment(lib,"ezNetwork.lib")
 
 #include "../messages.h"
-#include "../../../source/ezServer.h"
+#include "../../../source/Server.h"
+std::atomic<bool> active = true;
 
-void print_thread(EzServer* server)
+void print_thread(Server* server)
 {
-	while (true) {
+	while (active) {
 		for (auto& g : server->recieve<Greet>())
 			g.print();
 		
@@ -22,7 +23,7 @@ void print_thread(EzServer* server)
 }
 
 int main() {
-	EzServer server;
+	Server server;
 
 	std::thread t(&print_thread, &server);
 	
@@ -33,12 +34,15 @@ int main() {
 			server.send(Greet());
 			break;
 		case'2':
-			//server.send(Goodbye("pozdrowionka"));
+			server.send(Goodbye("pozdrowionka"));
 			break;
 		case'3':
 			server.send(Goodbye("nie pozdrawiam"));
 			break;
-		case'q': return 0;
+		case'q': 
+			active = false;
+			t.join();
+			return 0;
 		}
 
 }
