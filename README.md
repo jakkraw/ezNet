@@ -1,4 +1,4 @@
-# lan-multiplayer-cpp-library
+# ezNet lan c++ library, for creating multiplayer games 
 
 Example Usage:
 
