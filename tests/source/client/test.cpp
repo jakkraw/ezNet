@@ -22,7 +22,7 @@ void printer(Connection& server, std::atomic_bool& active)
 			g.print();
 
 		using namespace std::chrono_literals;
-		std::this_thread::sleep_for(100ms);
+		std::this_thread::sleep_for(0s);
 	}
 }
 

@@ -9,6 +9,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server", "server\server.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ezNet", "..\..\vs15\ezNet.vcxproj", "{0B14FCEB-AEEA-407E-B4CE-E81C123D42F1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{678D75D6-9287-4600-BA07-DF82A67ADA07}"
+	ProjectSection(SolutionItems) = preProject
+		..\source\messages.h = ..\source\messages.h
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
