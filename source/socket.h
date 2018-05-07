@@ -1,24 +1,20 @@
 #pragma once
-
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
 #include <utility>
+#pragma comment(lib, "Ws2_32.lib")
+
+struct WinSockLifetime {
+	WinSockLifetime() { if (WSAStartup(MAKEWORD(2, 2), &WSADATA())) throw; }
+	~WinSockLifetime() { WSACleanup(); }
+};
+extern const WinSockLifetime lifetime = WinSockLifetime();
+
 #include "msg.h"
 #include "address.h"
 
-#pragma comment(lib, "Ws2_32.lib")
-
 struct Socket {
-	enum class Type { TCP , UDP };
 	SOCKET socket;
-
-	Socket(const Type& type) {
-		if (type == Type::TCP)
-			socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		else
-			socket = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-	}
 
 	Socket(const SOCKET& socket) : socket(socket) {}
 
@@ -74,14 +70,14 @@ struct Socket {
 
 	template<class Data>
 	struct Recieved {
-		Recieved() = default;
+		Recieved(){}
 		Recieved(Address from , const Data& data) : valid(true), from(std::move(from)), data(data){}
 
-		const bool valid{ false };
-		const Address from{"0.0.0.0", 0};
+		bool valid{ false };
+		Address from{"0.0.0.0", 0};
 		union {
 			Data data;
-			const bool _ = false;
+			bool _ = false;
 		};	
 	};
 
@@ -220,3 +216,10 @@ struct Socket {
 
 };
 
+struct TcpSocket : Socket {
+	TcpSocket() : Socket(::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)){}
+};
+
+struct UdpSocket : Socket {
+	UdpSocket() : Socket(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)){}
+};

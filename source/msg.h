@@ -8,7 +8,7 @@ struct Msg
 	using Sender = size_t;
 	using Size = unsigned;
 	using Byte = char;
-	using Data = const Byte*;
+	using Data = Byte*;
 	std::vector<Byte> buffer;
 
 	template<typename Msg>
@@ -34,25 +34,25 @@ struct Msg
 	explicit Msg(const Size& size)
 		: buffer(sizeof(Header) + size) {}
 
-	Msg(const Size& size, const Type& id, const void* data)
+	Msg(const Size& size, const Type& type, const void* data)
 		: buffer(sizeof(Header) + size)
 	{
 		auto& h = header();
 		h.size = size;
-		h.type = id;
+		h.type = type;
 		h.timestamp = Clock::now();
-		memcpy_s((void*)payload(), size, data, size);
+		memcpy_s(payload(), size, data, size);
 	}
 
 	Msg(Msg&& msg) noexcept : buffer(std::move(msg.buffer)) {}
+
+	Msg(const Msg& msg) noexcept : buffer(msg.buffer) {}
 
 	void setSender(Sender sender) { header().sender = sender; }
 	Header& header() const { return (Header&)buffer[0]; }
 	Data payload() const { return Data(&buffer[sizeof(Header)]); }
 	Size size() const {
-		auto s = buffer.size();
-		
-		return buffer.size();
+		return static_cast<Size>(buffer.size());
 	}
 	Size payloadSize() const { return header().size; }
 	Type id() const { return header().type; }
@@ -61,5 +61,9 @@ struct Msg
 	operator char*() { return buffer.data(); }
 
 	template<typename Data>
-	const Data& payloadAs() const { return (const Data&)*payload(); }
+	const Data& payloadAs() const { return reinterpret_cast<const Data&>(*payload()); }
+
+	Sender sender() const {
+		return header().sender;
+	}
 };

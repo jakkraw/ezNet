@@ -5,20 +5,10 @@
 #include <atomic>
 #include "socket.h"
 #include "address.h"
-
-using namespace std::chrono_literals;
-
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-#include <WinSock2.h>
-#pragma comment(lib, "Ws2_32.lib")
+#include <unordered_set>
 #include <chrono>
 
-struct WinSockLifetime {
-	WinSockLifetime() { if (WSAStartup(MAKEWORD(2, 2), &WSADATA())) throw; }
-	~WinSockLifetime() { WSACleanup(); }
-};
-
-extern const WinSockLifetime lifetime = WinSockLifetime();
+using namespace std::chrono_literals;
 
 const Port discoverPort = 19246;
 namespace Msgs {
@@ -30,16 +20,16 @@ namespace Msgs {
 struct Broadcaster {
 	std::atomic<bool> running = true;
 	const Port port;
-	Socket s{ Socket::Type::UDP };
+	UdpSocket socket;
 	std::thread searcher{ [this]()
 	{
-		this->s.setBroadcast(true);
-		this->s.setReusable(true);
-		this->s.bind(discoverPort);
+		socket.setBroadcast(true);
+		socket.setReusable(true);
+		socket.bind(discoverPort);
 
-		while (this->running) {
-			const auto msg = this->s.recieveAny<Msgs::ServerSearch>();
-			if (msg.valid) this->s.sendTo(msg.from, Msgs::ServerLocation{ this->port });
+		while (running) {
+			auto msg = socket.recieveAny<Msgs::ServerSearch>();
+			if (msg.valid) socket.sendTo(msg.from, Msgs::ServerLocation{ port });
 		}
 	} };
 
@@ -47,16 +37,35 @@ struct Broadcaster {
 
 	~Broadcaster() {
 		running = false;
-		s.shutdown();
-		s.close();
+		socket.shutdown();
+		socket.close();
 		searcher.join();
 	}
 };
 
+
+template<typename Data>
+class ConcurrentUnorderedSet {
+	std::mutex mutex;
+	std::unordered_set<Data> set;
+
+
+	public:
+	void insert(Data&& address) {
+		std::lock_guard<std::mutex> lock(mutex);
+		set.insert(std::move(address));
+	}
+
+	std::unordered_set<Data> get() {
+		std::lock_guard<std::mutex> lock(mutex);
+		return set;
+	}
+};
+
 struct ServerFinder {
-	std::mutex m;
-	std::list<Address> _servers;
-	Socket socket{ Socket::Type::UDP };
+
+	ConcurrentUnorderedSet<Address> _servers;
+	UdpSocket socket;
 	std::thread searcher, reciever;
 	std::atomic<bool> running = true;
 
@@ -76,16 +85,8 @@ struct ServerFinder {
 		reciever = std::thread{ [this](){
 				while (running)
 				{
-					auto msg = socket.recieveAny<Msgs::ServerLocation>();
-					if (msg.valid) {
-						std::lock_guard<std::mutex> lock(m);
-						_servers.emplace_back(msg.from.ip, msg.data.port);
-						_servers.unique([](Address& first, Address& second)
-						{
-							return first.ip == second.ip &&
-								first.port == second.port;
-						});
-					}
+					const auto msg = socket.recieveAny<Msgs::ServerLocation>();
+					if (msg.valid) _servers.insert({ msg.from.ip, msg.data.port });
 				}
 			} };
 	}
@@ -98,9 +99,8 @@ struct ServerFinder {
 		reciever.join();
 	}
 
-	std::list<Address> servers() {
-		std::lock_guard<std::mutex> lock(m);
-		return _servers;
+	std::unordered_set<Address> servers() {
+		return _servers.get();
 	}
 
 	static std::list<IP> my_ip_list() {

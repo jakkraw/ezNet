@@ -1,5 +1,5 @@
 #pragma once
-#include "Queue.h"
+#include "queue.h"
 #include "socket.h"
 #include "address.h"
 #include <atomic>
@@ -8,16 +8,16 @@ using namespace std::chrono_literals;
 
 struct Connection {
 	Queue toSend, recieved;
-	Socket socket;
+	TcpSocket socket;
 	std::atomic<bool> active{ true };
 	std::thread sender{ [this]()
 	{
-		while (this->active)
+		while (active)
 		{
-			for (auto&& msg : this->toSend.get())
-				this->socket.send(msg);
+			for (auto&& msg : toSend.get())
+				socket.send(msg);
 
-			std::this_thread::sleep_for(8ms);
+			std::this_thread::sleep_for(0ms);
 		}
 	} };
 
@@ -31,8 +31,8 @@ struct Connection {
 
 	} };
 
-	static Socket fromAddress(const Address& address) {
-		Socket socket{ Socket::Type::TCP };
+	static TcpSocket fromAddress(const Address& address) {
+		TcpSocket socket;
 		socket.connect(address);
 		return socket;
 	}
@@ -40,7 +40,7 @@ struct Connection {
 	Connection(const Address& address) : 
 	socket(fromAddress(address)) {}
 
-	Connection(Socket&& socket) :
+	Connection(TcpSocket&& socket) :
 		socket(std::move(socket)) {}
 
 	Connection(Connection&& connection) :
@@ -55,12 +55,19 @@ struct Connection {
 		reciever.join();
 	}
 
+	void send(Msg msg) {
+		toSend.add(std::move(msg));
+	}
+
 	template<typename Data>
 	void send(const Data& data) {
 		toSend.add(Msg::toMsg(data));
 	}
 
-	bool isValid() const { return socket.isValid(); };
+	bool isValid() const { return socket.isValid(); }
+	size_t id() const  {
+		return socket.socket;
+	}
 
 	template<typename Data>
 	std::list<Data> recieve() {
