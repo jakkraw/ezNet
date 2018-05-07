@@ -3,7 +3,7 @@
 Example Usage:
 
 Messages:
-```
+```cpp
 struct Greet {
 	int i = 5;
 	void print() const { printf("Greets with number: %d\n", i); }
@@ -18,7 +18,7 @@ struct Goodbye {
 ```
 
 Server:
-```
+```cpp
 void printer(Server& server, std::atomic_bool& active)
 {
 	while (active) {
@@ -60,7 +60,7 @@ int main() {
 ```
 
 Clients: 
-```
+```cpp
 void printer(Connection& server, std::atomic_bool& active)
 {
 	while (active) {
