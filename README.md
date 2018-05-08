@@ -6,115 +6,116 @@ Messages:
 ```cpp
 struct Greet {
 	int i = 5;
-	void print() const { printf("Greets with number: %d\n", i); }
+	explicit Greet(int i) : i(i){}
+	void print() const { printf("Hello from nr: %d\n", i); }
 };
 
-struct Goodbye {
-	char text[20]{0};
-	Goodbye(const char* c) { memcpy_s(text, 20, c, strlen(c)+1); }
-	void print() const { printf("message with: %s\n", &text); }
+struct Text100 {
+	char text[100]{};
+
+	Text100(const char* c) { memcpy_s(text, sizeof(text), c, strlen(c) + 1); }
+
+	void print() const { printf("%s\n", text); }
 };
+
 
 ```
 
 Server:
 ```cpp
-void printer(Server& server, std::atomic_bool& active)
-{
-	while (active) {
-		for (auto& g : server.recieve<Greet>())
-			g.print();
-		
-		for (auto& g : server.recieve<Goodbye>())
-			g.print();
+void printer(Server& server, std::atomic_bool& active) {
+	while (active)
+	{
+		for (auto&& msg : server.recieve<Greet>()) msg.print();
 
-		using namespace std::chrono_literals;
-		std::this_thread::sleep_for(100ms);
+		for (auto&& msg : server.recieve<Text100>()) msg.print();
+
+		std::this_thread::sleep_for(0s);
 	}
 }
 
 int main() {
 	Server server;
-	std::atomic<bool> active = true;
-	std::thread t(&printer, std::ref(server), std::ref(active));
-	
-	while (true)
+	std::atomic_bool active = true;
+	std::thread printer_thread(&printer, std::ref(server), std::ref(active));
+
+	auto nr = 0;
+	std::string text;
+
+	while (active)
 		switch (_getch())
 		{
-		case '1':
-			server.send(Greet());
-			break;
-		case'2':
-			server.send(Goodbye("Test"));
-			break;
-		case'3':
-			server.send(Goodbye("Server Message"));
-			break;
-		case'q': 
-			active = false;
-			t.join();
-			return 0;
+			case '1': server.send(Greet{ ++nr });
+				break;
+			case'2': server.send(Text100("Test"));
+				break;
+			case'3': server.send(Text100("Server Message"));
+				break;
+			case'\r':
+				std::cout << "Enter text message: ";
+				std::getline(std::cin,text);	
+				server.send(Text100(text.c_str()));
+				break;
+			case'q': active = false;
+				break;
 		}
-}
 
+	printer_thread.join();
+}
 ```
 
 Clients: 
 ```cpp
-void printer(Connection& server, std::atomic_bool& active)
-{
-	while (active) {
-		for (auto& g : server.recieve<Greet>())
-			g.print();
+void printer(Connection& server, std::atomic_bool& active) {
+	while (active)
+	{
+		for (auto&& msg : server.recieve<Greet>()) msg.print();
 
-		for (auto& g : server.recieve<Goodbye>())
-			g.print();
+		for (auto&& msg : server.recieve<Text100>()) msg.print();
 
-		using namespace std::chrono_literals;
-		std::this_thread::sleep_for(100ms);
+		if (!server.isValid())
+		{
+			printf("Server Connection Error\n");
+			active = false;
+		}
+
+		std::this_thread::sleep_for(0s);
 	}
 }
 
-Address findServer() {
+Address find_server() {
 	ServerFinder finder;
 	printf("SeachringForServer\n");
-	while (true) {
+	while (true)
+	{
 		const auto servers = finder.servers();
-		if (!servers.empty())
-			return *servers.begin();
+		if (!servers.empty()) return printf("ServerFound\n"), *servers.begin();
+		std::this_thread::sleep_for(0s);
 	}
 }
 
 int main() {
-	std::atomic<bool> active = true;
-	std::unique_ptr<Connection> server = std::make_unique<Connection>(findServer());
-	printf("ServerFound\n");
+	std::atomic_bool active{true};
+	Connection server{find_server()};
 
-	std::thread t(&printer, std::ref(*server), std::ref(active));
+	std::thread printer_thread(&printer, std::ref(server), std::ref(active));
 
-	while (true) {
+	auto nr = 0;
+
+	while (active)
 		switch (_getch())
 		{
-		case '1':
-			server->send(Greet());
-			break;
-		case'2':
-			server->send(Goodbye("Goodbye..."));
-			break;
-		case'3':
-			server->send(Goodbye("Bye."));
-			break;
-		case'q':
-			active = false;
-			t.join();
-			return 0;
+		case '1': server.send(Greet{ ++nr });
+				break;
+			case'2': server.send(Text100("Goodbye..."));
+				break;
+			case'3': server.send(Text100("Bye."));
+				break;
+			case'q': active = false;
+				break;
 		}
-		if (!server->isValid()) break;
-	}
 
-	printf("ServerFoundInvalid\n");
-	active = false;
-	t.join();
+	printer_thread.join();
 }
 ```
 
