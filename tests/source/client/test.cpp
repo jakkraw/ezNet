@@ -1,69 +1,61 @@
-#include "../messages.h"
-#include <thread>
-#include <chrono>
 #include <conio.h>
 #include <atomic>
-#include <memory>
-
-//#pragma comment(lib,"ezNetwork.lib")
-
 #include <thread>
-#include "../../../source/connection.h"
-#include "../../../source/serverFinder.h"
+#include <chrono>
+using namespace std::chrono_literals;
 
+#include "../messages.h"
+#include "connection.h"
+#include "serverFinder.h"
 
-void printer(Connection& server, std::atomic_bool& active)
-{
-	while (active) {
-		for (auto& g : server.recieve<Greet>())
-			g.print();
+void printer(Connection& server, std::atomic_bool& active) {
+	while (active)
+	{
+		for (auto&& msg : server.recieve<Greet>()) msg.print();
 
-		for (auto& g : server.recieve<Goodbye>())
-			g.print();
+		for (auto&& msg : server.recieve<Text100>()) msg.print();
 
-		using namespace std::chrono_literals;
+		if (!server.isValid())
+		{
+			printf("Server Connection Error\n");
+			active = false;
+		}
+
 		std::this_thread::sleep_for(0s);
 	}
 }
 
-Address findServer() {
+Address find_server() {
 	ServerFinder finder;
 	printf("SeachringForServer\n");
-	while (true) {
+	while (true)
+	{
 		const auto servers = finder.servers();
-		if (!servers.empty())
-			return *servers.begin();
+		if (!servers.empty()) return printf("ServerFound\n"), *servers.begin();
+		std::this_thread::sleep_for(0s);
 	}
 }
 
 int main() {
-	std::atomic<bool> active = true;
-	std::unique_ptr<Connection> server = std::make_unique<Connection>(findServer());
-	printf("ServerFound\n");
+	std::atomic_bool active{true};
+	Connection server{find_server()};
 
-	std::thread t(&printer, std::ref(*server), std::ref(active));
+	std::thread printer_thread(&printer, std::ref(server), std::ref(active));
 
-	while (true) {
+	auto nr = 0;
+
+	while (active)
 		switch (_getch())
 		{
-		case '1':
-			server->send(Greet());
-			break;
-		case'2':
-			server->send(Goodbye("Goodbye..."));
-			break;
-		case'3':
-			server->send(Goodbye("Bye."));
-			break;
-		case'q':
-			active = false;
-			t.join();
-			return 0;
+		case '1': server.send(Greet{ ++nr });
+				break;
+			case'2': server.send(Text100("Goodbye..."));
+				break;
+			case'3': server.send(Text100("Bye."));
+				break;
+			case'q': active = false;
+				break;
 		}
-		if (!server->isValid()) break;
-	}
 
-	printf("ServerFoundInvalid\n");
-	active = false;
-	t.join();
+	printer_thread.join();
 }

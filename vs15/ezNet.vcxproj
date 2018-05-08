@@ -21,9 +21,8 @@
   <ItemGroup>
     <ClInclude Include="..\source\address.h" />
     <ClInclude Include="..\source\connection.h" />
-    <ClInclude Include="..\source\interface.h" />
-    <ClInclude Include="..\source\msg.h" />
-    <ClInclude Include="..\source\queue.h" />
+    <ClInclude Include="..\source\message.h" />
+    <ClInclude Include="..\source\ConncurrentMap.h" />
     <ClInclude Include="..\source\server.h" />
     <ClInclude Include="..\source\serverFinder.h" />
     <ClInclude Include="..\source\socket.h" />

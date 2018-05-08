@@ -8,19 +8,20 @@ struct WinSockLifetime {
 	WinSockLifetime() { if (WSAStartup(MAKEWORD(2, 2), &WSADATA())) throw; }
 	~WinSockLifetime() { WSACleanup(); }
 };
+
 extern const WinSockLifetime lifetime = WinSockLifetime();
 
-#include "msg.h"
+#include "message.h"
 #include "address.h"
 
 struct Socket {
 	SOCKET socket;
 
-	Socket(const SOCKET& socket) : socket(socket) {}
+	Socket(const SOCKET& socket)
+		: socket(socket) {}
 
-	Socket(Socket&& socket) : socket(socket.socket) {
-		socket.socket = INVALID_SOCKET;
-	}
+	Socket(Socket&& socket)
+		: socket(socket.socket) { socket.socket = INVALID_SOCKET; }
 
 	void setInvalid() {
 		printError();
@@ -31,7 +32,8 @@ struct Socket {
 	void close() {
 		if (!isValid()) return;
 		const auto result = closesocket(socket);
-		if (result == SOCKET_ERROR) {
+		if (result == SOCKET_ERROR)
+		{
 			socket = INVALID_SOCKET;
 			printError();
 		}
@@ -40,9 +42,9 @@ struct Socket {
 	static void printError() {
 		wchar_t* error = nullptr;
 		FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			nullptr, WSAGetLastError(),
-			MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
-			LPWSTR(&error), 0, nullptr);
+		               nullptr, WSAGetLastError(),
+		               MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+		               LPWSTR(&error), 0, nullptr);
 		fprintf(stderr, "%S\n", error);
 		LocalFree(error);
 	}
@@ -64,25 +66,26 @@ struct Socket {
 		if (::shutdown(socket, SD_BOTH) == SOCKET_ERROR) setInvalid();
 	}
 
-	bool isValid() const {
-		return socket != INVALID_SOCKET;
-	}
+	bool isValid() const { return socket != INVALID_SOCKET; }
 
-	template<class Data>
-	struct Recieved {
-		Recieved(){}
-		Recieved(Address from , const Data& data) : valid(true), from(std::move(from)), data(data){}
+	template <class Data> struct Recieved {
+		Recieved() {}
 
-		bool valid{ false };
+		Recieved(Address from, const Data& data)
+			: valid(true),
+			  from(std::move(from)),
+			  data(data) {}
+
+		bool valid{false};
 		Address from{"0.0.0.0", 0};
+
 		union {
 			Data data;
 			bool _ = false;
-		};	
+		};
 	};
 
-	template<class Data>
-	Recieved<Data> recieveAny() {
+	template <class Data> Recieved<Data> recieveAny() {
 
 		if (!isValid()) return {};
 		sockaddr_in sender;
@@ -90,27 +93,27 @@ struct Socket {
 
 		Msg msg(sizeof(Data));
 		auto result = recvfrom(socket, msg, msg.size(), 0,
-		                             reinterpret_cast<sockaddr*>(&sender), &senderSize);
+		                       reinterpret_cast<sockaddr*>(&sender), &senderSize);
 
 		if (result == SOCKET_ERROR) goto severeError;
 		if (result != static_cast<int>(msg.size())) goto badMsg;
 		if (typeid(Data).hash_code() != msg.header().type) goto badMsg;
 
-		return{ { inet_ntoa(sender.sin_addr), ntohs(sender.sin_port) } , msg.payloadAs<Data>() };
-		severeError: printf("udpRecieve:") , printError();
-		badMsg: return {};
+		return {{inet_ntoa(sender.sin_addr), ntohs(sender.sin_port)}, msg.payloadAs<Data>()};
+	severeError: printf("udpRecieve:"), printError();
+	badMsg: return {};
 	}
 
-	template<class Data>
-	bool sendTo(const Address& address, const Data& data ) {
+	template <class Data> bool sendTo(const Address& address, const Data& data) {
 		if (!isValid()) return false;
 		sockaddr_in reciever = sockaddr_in();
 		reciever.sin_family = AF_INET;
 		reciever.sin_port = htons(address.port);
 		reciever.sin_addr.s_addr = inet_addr(address.ip.c_str());
 
-		Msg msg{ Msg::toMsg(data) };
-		const auto result = sendto(socket, msg, msg.size(), 0, reinterpret_cast<const sockaddr*>(&reciever), sizeof(reciever));
+		Msg msg{Msg::toMsg(data)};
+		const auto result = sendto(socket, msg, msg.size(), 0, reinterpret_cast<const sockaddr*>(&reciever),
+		                           sizeof(reciever));
 		if (result == SOCKET_ERROR) printf("udpSend:"), printError();
 		return result > SOCKET_ERROR;
 	}
@@ -140,7 +143,7 @@ struct Socket {
 		int size = sizeof(addr);
 		const auto result = getsockname(socket, reinterpret_cast<sockaddr*>(&addr), &size);
 		if (result == SOCKET_ERROR) setInvalid();
-		return { inet_ntoa(addr.sin_addr), ntohs(addr.sin_port) };
+		return {inet_ntoa(addr.sin_addr), ntohs(addr.sin_port)};
 	}
 
 	bool connect(const Address& address) {
@@ -155,32 +158,37 @@ struct Socket {
 		return result > SOCKET_ERROR;
 	}
 
-
-	std::pair<Socket,Address> accept() {
-		if (!isValid()) return{ Socket{ INVALID_SOCKET }, Address{"0.0.0.0", 0} };
+	std::pair<Socket, Address> accept() {
+		if (!isValid()) return {Socket{INVALID_SOCKET}, Address{"0.0.0.0", 0}};
 		sockaddr_in addr = sockaddr_in();
 		int size = sizeof(addr);
 		const auto client = ::accept(socket, reinterpret_cast<sockaddr*>(&addr), &size);
 		if (client == INVALID_SOCKET) setInvalid();
 
-		return{ Socket{client}, Address{ inet_ntoa(addr.sin_addr), ntohs(addr.sin_port) } };
+		return {Socket{client}, Address{inet_ntoa(addr.sin_addr), ntohs(addr.sin_port)}};
 	}
 
 	bool send(const Msg& msg) {
 		if (!isValid()) return false;
 		const auto result = ::send(socket, msg, msg.size(), 0);
 		if (result == SOCKET_ERROR) setInvalid();
-		return  result > SOCKET_ERROR;
+		return result > SOCKET_ERROR;
 	}
 
 	struct Package {
-		Package(Msg&& msg) : valid(true), msg(std::move(msg)) {}
-		Package(Package&& data) noexcept
-			: valid(data.valid), msg(std::move(data.msg)){}
-		Package(){}
-		~Package(){}
+		Package(Msg&& msg)
+			: valid(true),
+			  msg(std::move(msg)) {}
 
-		const bool valid{ false };
+		Package(Package&& data) noexcept
+			: valid(data.valid),
+			  msg(std::move(data.msg)) {}
+
+		Package() {}
+		~Package() {}
+
+		const bool valid{false};
+
 		union {
 			Msg msg;
 			const char _ = 0;
@@ -204,22 +212,21 @@ struct Socket {
 			msg.setSender(socket);
 			return std::move(msg);
 		}
-		
-		severeError: setInvalid();
-		badMsg: return{};
+
+	severeError: setInvalid();
+	badMsg: return {};
 	}
 
-
-	~Socket() {
-		close();
-	}
+	~Socket() { close(); }
 
 };
 
 struct TcpSocket : Socket {
-	TcpSocket() : Socket(::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)){}
+	TcpSocket()
+		: Socket(::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) {}
 };
 
 struct UdpSocket : Socket {
-	UdpSocket() : Socket(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)){}
+	UdpSocket()
+		: Socket(::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) {}
 };

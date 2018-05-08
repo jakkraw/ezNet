@@ -3,54 +3,52 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
-#include "socket.h"
-#include "address.h"
 #include <unordered_set>
 #include <chrono>
 
+#include "socket.h"
+#include "address.h"
+
 using namespace std::chrono_literals;
 
-const Port discoverPort = 19246;
+const Port DISCOVER_PORT = 19246;
+
 namespace Msgs {
 	struct ServerLocation { Port port; };
 	struct ServerSearch {};
 }
 
-
 struct Broadcaster {
-	std::atomic<bool> running = true;
-	const Port port;
-	UdpSocket socket;
-	std::thread searcher{ [this]()
-	{
-		socket.setBroadcast(true);
-		socket.setReusable(true);
-		socket.bind(discoverPort);
-
-		while (running) {
-			auto msg = socket.recieveAny<Msgs::ServerSearch>();
-			if (msg.valid) socket.sendTo(msg.from, Msgs::ServerLocation{ port });
-		}
-	} };
-
-	Broadcaster(const Port& port) : port(port) {}
-
+	explicit Broadcaster(const Port& port) : port(port) {}
 	~Broadcaster() {
 		running = false;
 		socket.shutdown();
 		socket.close();
 		searcher.join();
 	}
+
+	private:
+		std::atomic_bool running{ true };
+		const Port port;
+		UdpSocket socket;
+		std::thread searcher{
+			[this]()
+		{
+			socket.setBroadcast(true);
+			socket.setReusable(true);
+			socket.bind(DISCOVER_PORT);
+
+			while (running)
+			{
+				const auto msg = socket.recieveAny<Msgs::ServerSearch>();
+				if (msg.valid) socket.sendTo(msg.from, Msgs::ServerLocation{ port });
+			}
+		}
+		};
 };
 
+template <typename Data> struct ConcurrentUnorderedSet {
 
-template<typename Data>
-class ConcurrentUnorderedSet {
-	std::mutex mutex;
-	std::unordered_set<Data> set;
-
-
-	public:
 	void insert(Data&& address) {
 		std::lock_guard<std::mutex> lock(mutex);
 		set.insert(std::move(address));
@@ -60,37 +58,43 @@ class ConcurrentUnorderedSet {
 		std::lock_guard<std::mutex> lock(mutex);
 		return set;
 	}
+
+	private:
+	std::mutex mutex;
+	std::unordered_set<Data> set;
+
 };
 
 struct ServerFinder {
 
-	ConcurrentUnorderedSet<Address> _servers;
-	UdpSocket socket;
-	std::thread searcher, reciever;
-	std::atomic<bool> running = true;
+	std::unordered_set<Address> servers() { return _servers.get(); }
 
 	ServerFinder() {
 		socket.setBroadcast(true);
 		socket.bind();
-		searcher = std::thread{[this]() {
+		searcher = std::thread{
+			[this]()
+		{
 			while (running)
 			{
 				for (auto&& ip : my_ip_list())
-					for (auto&& broadcast : possibleBroadcasts(ip))
-						socket.sendTo({ broadcast, discoverPort }, Msgs::ServerSearch());
+					for (auto&& broadcast : possibleBroadcasts(ip)) socket.sendTo({ broadcast, DISCOVER_PORT }, Msgs::ServerSearch());
 
 				std::this_thread::sleep_for(2s);
 			}
-		} };
-		reciever = std::thread{ [this](){
-				while (running)
-				{
-					const auto msg = socket.recieveAny<Msgs::ServerLocation>();
-					if (msg.valid) _servers.insert({ msg.from.ip, msg.data.port });
-				}
-			} };
+		}
+		};
+		reciever = std::thread{
+			[this]()
+		{
+			while (running)
+			{
+				const auto msg = socket.recieveAny<Msgs::ServerLocation>();
+				if (msg.valid) _servers.insert({ msg.from.ip, msg.data.port });
+			}
+		}
+		};
 	}
-
 	~ServerFinder() {
 		running = false;
 		socket.shutdown();
@@ -99,34 +103,37 @@ struct ServerFinder {
 		reciever.join();
 	}
 
-	std::unordered_set<Address> servers() {
-		return _servers.get();
-	}
+	private:
+		ConcurrentUnorderedSet<Address> _servers;
+		UdpSocket socket;
+		std::thread searcher, reciever;
+		std::atomic<bool> running = true;
 
 	static std::list<IP> my_ip_list() {
+		std::list<IP> ips;
+
 		char hostName[80];
-		if (gethostname(hostName, sizeof(hostName)) == SOCKET_ERROR) return std::list<IP>();
+		if (gethostname(hostName, sizeof(hostName)) == SOCKET_ERROR) return ips;
 
 		const auto host = gethostbyname(hostName);
-		if (!host) return std::list<IP>();
+		if (!host) return ips;
 
-
-		std::list<IP> ipList;
-		for (int i = 0; host->h_addr_list[i] != nullptr; ++i)
+		
+		for (auto i = 0; host->h_addr_list[i] != nullptr; ++i)
 		{
 			in_addr address;
 			memcpy(&address, host->h_addr_list[i], sizeof(in_addr));
-			ipList.emplace_back(inet_ntoa(address));
+			ips.emplace_back(inet_ntoa(address));
 		}
 
-		return ipList;
+		return ips;
 	}
 
 	static std::list<IP> possibleBroadcasts(const IP& ip) {
-		std::list<IP> broadcasts;
 		in_addr address{};
 		address.s_addr = inet_addr(ip.c_str());
 
+		std::list<IP> broadcasts;
 		broadcasts.emplace_back(inet_ntoa(address));
 		address.S_un.S_un_b.s_b4 = 255;
 		broadcasts.emplace_back(inet_ntoa(address));
@@ -138,5 +145,3 @@ struct ServerFinder {
 		return broadcasts;
 	}
 };
-
-
